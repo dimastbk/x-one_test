@@ -1,0 +1,19 @@
+---
+dist: bionic
+language: python
+
+python:
+  - 3.8
+
+before_install:
+  - pip freeze | xargs pip uninstall -y
+  - curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+  - source "$HOME/.poetry/env"
+
+install:
+  - poetry install --no-root
+
+script:
+  - flake8 --config=setup.cfg
+  - black --check .
+  - isort --check .
