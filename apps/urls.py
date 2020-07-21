@@ -13,6 +13,11 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.urls import include, path
+
 from apps.swagger import swagger_urls
 
-urlpatterns = [] + swagger_urls()
+urlpatterns = [
+    path("blog/", include("apps.blog.urls")),
+    path("user/", include("apps.user.urls")),
+] + swagger_urls()
