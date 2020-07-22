@@ -17,3 +17,7 @@ class BlogPage(models.Model):
 
     def __str__(self):
         return f"Статья «{self.title}» ({self.user.username}, создано {self.created})"
+
+    @property
+    def description(self):
+        return self.content[:100]

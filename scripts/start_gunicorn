@@ -1,0 +1,37 @@
+#!/bin/sh
+
+set -o errexit
+set -o nounset
+
+check_db() {
+python << END
+import os
+import sys
+
+import psycopg2
+
+try:
+    conn = psycopg2.connect(
+        dbname=os.environ['POSTGRES_DB'],
+        user=os.environ['POSTGRES_USER'],
+        password=os.environ['POSTGRES_PASSWORD'],
+        port=os.environ['POSTGRES_PORT'],
+        host=os.environ['POSTGRES_HOST'],
+    )
+except psycopg2.OperationalError:
+    sys.exit(-1)
+
+print("Postgres is up - continuing...")
+sys.exit(0)
+END
+}
+
+until check_db; do
+  >&2 echo "Postgres ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} is unavailable - sleeping"
+  sleep 1
+done
+
+python ${PROJECT_ROOT}/manage.py collectstatic --noinput
+python ${PROJECT_ROOT}/manage.py migrate --noinput
+
+gunicorn core.wsgi:application --bind 0.0.0.0:8000

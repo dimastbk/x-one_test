@@ -28,7 +28,7 @@ class SignUpSerializer(serializers.Serializer):
         validators=[validate_password],
     )
 
-    def validate_password(self, value):
+    def validate_password2(self, value):
         if self.initial_data.get("password") != value:
             raise serializers.ValidationError("Пароли не совпадают")
         return value
@@ -40,7 +40,17 @@ class TokenSerializer(serializers.Serializer):
     token = serializers.CharField()
 
 
-class UserSerializer(serializers.ModelSerializer):
+class BaseUserSerializer(serializers.ModelSerializer):
     class Meta:
-        fields = "__all__"
+        exclude = ("password",)
         model = get_user_model()
+
+
+class UserPatchSerializer(BaseUserSerializer):
+    class Meta:
+        fields = ("is_active",)
+        model = get_user_model()
+
+
+class UserSerializer(BaseUserSerializer):
+    pages__sum = serializers.IntegerField()

@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.db import models
 
 from rest_framework import mixins, permissions, status
@@ -10,11 +10,14 @@ from rest_framework.viewsets import GenericViewSet
 
 from drf_yasg.utils import swagger_auto_schema
 
-from apps.serializers import ErrorSerializer
+from apps.blog.models import BlogPage
+from apps.serializers import EmptySerializer, ErrorSerializer
 from apps.user.serializers import (
+    BaseUserSerializer,
     SignInSerializer,
     SignUpSerializer,
     TokenSerializer,
+    UserPatchSerializer,
     UserSerializer,
 )
 
@@ -34,14 +37,16 @@ class AuthViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = get_user_model().objects.get(
-                username=serializer.validated_data["username"]
+            user = authenticate(
+                request=request,
+                username=serializer.validated_data["username"],
+                password=serializer.validated_data["password"],
             )
         except get_user_model().DoesNotExist:
-            raise APIException("Неверный логин или пароль")
+            raise APIException({"detail": "Неверный логин или пароль", "code": "auth"})
 
-        if not user.check_password(serializer.validated_data["password"]):
-            raise APIException("Неверный логин или пароль")
+        if not user:
+            raise APIException({"detail": "Неверный логин или пароль", "code": "auth"})
 
         token, _ = Token.objects.get_or_create(user=user)
         return Response({"token": token.key})
@@ -69,7 +74,7 @@ class AuthViewSet(GenericViewSet):
         return Response({"token": token.key})
 
 
-class UserViewSet(mixins.ListModelMixin, GenericViewSet):
+class UserViewSet(mixins.ListModelMixin, mixins.UpdateModelMixin, GenericViewSet):
     queryset = (
         get_user_model().objects.prefetch_related("pages").annotate(models.Sum("pages"))
     )
@@ -78,10 +83,34 @@ class UserViewSet(mixins.ListModelMixin, GenericViewSet):
 
     @swagger_auto_schema(
         responses={
-            status.HTTP_200_OK: TokenSerializer,
+            status.HTTP_200_OK: EmptySerializer,
             APIException.status_code: ErrorSerializer(),
         },
     )
-    @action(methods=("put",), detail=True)
-    def block(self, request):
-        pass
+    @action(methods=("delete",), detail=True)
+    def delete_all_pages(self, request, pk=None):
+        if request.user.is_staff and pk:
+            BlogPage.objects.filter(user_id=pk).delete()
+        return Response()
+
+    @swagger_auto_schema(
+        responses={
+            status.HTTP_200_OK: BaseUserSerializer,
+            APIException.status_code: ErrorSerializer(),
+        },
+    )
+    @action(methods=("get",), detail=False)
+    def userinfo(self, request, *args, **kwargs):
+        user = get_user_model().objects.get(id=request.auth.user_id)
+        serializer = BaseUserSerializer(instance=user)
+        return Response(serializer.data)
+
+    def get_serializer_class(self):
+        if self.action in ("partial_update", "update"):
+            return UserPatchSerializer
+        return UserSerializer
+
+    def get_permissions(self):
+        if self.action == "userinfo":
+            return (permissions.IsAuthenticated(),)
+        return (permissions.IsAdminUser(),)
