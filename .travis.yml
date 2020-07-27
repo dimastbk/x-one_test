@@ -6,14 +6,17 @@ python:
   - 3.8
 
 before_install:
+  - sudo apt-get install npm -y
   - pip freeze | xargs pip uninstall -y
   - curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
   - source "$HOME/.poetry/env"
 
 install:
   - poetry install --no-root
+  - cd frontend && npm install && cd ..
 
 script:
   - flake8 --config=setup.cfg
   - black --check .
   - isort --check .
+  - cd frontend && npm run lint
