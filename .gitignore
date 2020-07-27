@@ -133,6 +133,7 @@ dmypy.json
 # Vue
 .DS_Store
 node_modules
+webpack-stats.json
 
 # Log files
 npm-debug.log*
